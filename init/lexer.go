@@ -1,150 +1,221 @@
 package main
 
 import (
-	"github.com/tie/x/qlex"
-	"unicode"
+	"io"
+	"strings"
 )
 
-const (
-	_ = iota
-	SepToken
-	SpaceToken
-	TextToken
-	CommentToken
-)
+type StateFunc func() StateFunc
 
-func initState(l *qlex.Lexer) qlex.StateFunc {
-	m := l.PeekRune()
-	if m.IsEOF() {
-		return eofState
-	}
-	r := m.Rune()
-	switch r {
-	case '#':
-		return commentState
-	case '\n':
-		return sepState
-	default:
-		if isSpace(r) {
-			return spacesState
-		}
-		return textState
+type Lexer struct {
+	state StateFunc
+	tokens chan Token
+	reader io.RuneReader
+	buffer strings.Builder
+	startPos, endPos Position
+	next struct {
+		r rune
+		size int
+		err error
 	}
 }
 
-func eofState(l *qlex.Lexer) qlex.StateFunc {
+func NewLexer(r io.RuneReader) *Lexer {
+	l := Lexer{
+		reader: r,
+		// TODO: lexer without goroutines
+		tokens: make(chan Token, 1),
+	}
+	l.state = l.initState
+	return &l
+}
+
+func (l *Lexer) Run() {
+	for l.state != nil {
+		l.state = l.state()
+	}
+	close(l.tokens)
+}
+
+func (l *Lexer) NextToken() (tok Token, eof bool) {
+	for l.state != nil {
+		select {
+		case token := <-l.tokens:
+			return token, false
+		default:
+			l.state = l.state()
+		}
+	}
+	return Token{}, true
+}
+
+func (l *Lexer) emit(typ TokenType) {
+	value := l.buffer.String()
+	l.tokens <- Token{typ, value, l.startPos, l.endPos}
+	l.startPos = l.endPos
+	l.buffer.Reset()
+}
+
+func (l *Lexer) peek() (rune, error) {
+	r, size, err := l.next.r, l.next.size, l.next.err
+	if err != nil || size > 0 {
+		return r, err
+	}
+	r, size, err = l.reader.ReadRune()
+	l.next.r, l.next.size, l.next.err = r, size, err
+	return r, err
+}
+
+func (l *Lexer) accept() {
+	r, size, err := l.next.r, l.next.size, l.next.err
+	if err != nil || size <= 0 {
+		panic("nothing to accept")
+	}
+	l.buffer.WriteRune(r)
+	l.endPos.Offset += size
+	switch r {
+	case '\n':
+		l.endPos.Column = 0
+		l.endPos.Line++
+	default:
+		l.endPos.Column++
+	}
+	l.next.size = 0
+}
+
+func (l *Lexer) read() (rune, error) {
+	r, err := l.peek()
+	if err != nil {
+		return r, err
+	}
+	l.accept()
+	return r, err
+}
+
+func (l *Lexer) initState() StateFunc {
+	r, err := l.peek()
+	if err != nil {
+		return l.eofState
+	}
+	switch r {
+	case '#':
+		return l.commentState
+	case '\n':
+		return l.sepState
+	default:
+		if isSpace(r) {
+			return l.spacesState
+		}
+		return l.textState
+	}
+}
+
+func (l *Lexer) eofState() StateFunc {
 	return nil
 }
 
-func isSpace(r rune) bool {
-	return unicode.IsSpace(r)
+func (l *Lexer) sepState() StateFunc {
+	// assume separator (i.e. end of line)
+	l.accept()
+	l.emit(SepToken)
+	return l.initState
 }
 
-func isText(r rune) bool {
-	return !isSpace(r) && r != '\n' && r != '#'
-}
-
-func sepState(l *qlex.Lexer) qlex.StateFunc {
-	l.NextRune()
-	l.Emit(SepToken)
-	return initState
-}
-
-func spacesState(l *qlex.Lexer) (next qlex.StateFunc) {
+func (l *Lexer) spacesState() StateFunc {
 	for {
-		m := l.PeekRune()
-		if m.IsEOF() {
-			l.Emit(SpaceToken)
-			return eofState
+		r, err := l.peek()
+		if err != nil {
+			l.emit(SpaceToken)
+			return l.eofState
 		}
-		r := m.Rune()
 		if !isSpace(r) {
-			l.Emit(SpaceToken)
-			return initState
+			l.emit(SpaceToken)
+			return l.initState
 		}
-		l.NextRune()
+		l.accept()
 	}
 }
 
-func textState(l *qlex.Lexer) qlex.StateFunc {
+func (l *Lexer) textState() StateFunc {
 	for {
-		m := l.PeekRune()
-		if m.IsEOF() {
-			l.Emit(TextToken)
-			return eofState
+		r, err := l.peek()
+		if err != nil {
+			l.emit(TextToken)
+			return l.eofState
 		}
-		r := m.Rune()
 		switch r {
 		case '\\':
-			if !escapeText(l) {
-				l.Emit(TextToken)
-				return eofState
+			if err := l.escapeText(); err != nil {
+				l.emit(TextToken)
+				return l.eofState
 			}
 		case '"':
-			if !quoteText(l) {
-				l.Emit(TextToken)
-				return eofState
+			if err := l.quoteText(); err != nil {
+				l.emit(TextToken)
+				return l.eofState
 			}
 		default:
 			if !isText(r) {
-				l.Emit(TextToken)
-				return initState
+				l.emit(TextToken)
+				return l.initState
 			}
-			l.NextRune()
+			l.accept()
 		}
 	}
 }
 
-func escapeText(l *qlex.Lexer) (ok bool) {
-	l.NextRune()
-	m := l.PeekRune()
-	if m.IsEOF() {
-		// escaping EOF, huh…
-		return false
+func (l *Lexer) escapeText() error {
+	// assume it's escape character (i.e. backslash)
+	if _, err := l.read(); err != nil {
+		return err
 	}
-	l.NextRune()
-	return true
+	// accept next rune
+	_, err := l.read()
+	return err
 }
 
-func quoteText(l *qlex.Lexer) (ok bool) {
-	quote := l.NextRune().Rune()
+func (l *Lexer) quoteText() error {
+	// assume it's a quote character
+	r, err := l.read()
+	if err != nil {
+		return err
+	}
+	quote := r
 	for {
-		m := l.PeekRune()
-		if m.IsEOF() {
+		r, err := l.peek()
+		if err != nil {
 			// unterminated quoted thing
-			return false
+			return err
 		}
-		r := m.Rune()
 		switch r {
 		case '\\':
-			if !escapeText(l) {
-				return false
+			if err := l.escapeText(); err != nil {
+				return err
 			}
+			continue
 		case '\n':
-			// terminate quoted token at end of line
-			return true
+			// terminate at end of line
+			return nil
 		case quote:
-			// consume closing quote
-			l.NextRune()
-			return true
-		default:
-			l.NextRune()
+			// closing quote
+			l.accept()
+			return nil
 		}
+		l.accept()
 	}
 }
 
-func commentState(l *qlex.Lexer) qlex.StateFunc {
+func (l *Lexer) commentState() StateFunc {
 	for {
-		m := l.PeekRune()
-		if m.IsEOF() {
-			l.Emit(CommentToken)
-			return eofState
+		r, err := l.peek()
+		if err != nil {
+			l.emit(CommentToken)
+			return l.eofState
 		}
-		r := m.Rune()
 		if r == '\n' {
-			l.Emit(CommentToken)
-			return initState
+			l.emit(CommentToken)
+			return l.initState
 		}
-		l.NextRune()
+		l.accept()
 	}
 }

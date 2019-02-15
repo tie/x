@@ -1,24 +1,22 @@
 package main
 
 import (
-	"github.com/tie/x/qlex"
+	"bufio"
 	"log"
 	"os"
+	"unicode/utf8"
 )
 
-func expand(s string) string {
-	return os.Expand(s, func(key string) string {
-		return ""
-	})
-}
-
 func main() {
-	line := []qlex.Token{}
-	for tok := range qlex.Lex(os.Stdin, initState) {
+	l := NewLexer(bufio.NewReaderSize(os.Stdin, utf8.UTFMax))
+	go l.Run()
+
+	line := []Token{}
+	for tok := range l.tokens {
 		switch tok.Typ {
 		case SepToken:
 			log.Println(line)
-			line = []qlex.Token{}
+			line = []Token{}
 		case SpaceToken:
 			continue
 		case TextToken:
