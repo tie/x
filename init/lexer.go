@@ -3,13 +3,10 @@ package main
 import (
 	"io"
 	"strings"
+	"unicode"
 )
 
-type StateFunc func() StateFunc
-
 type Lexer struct {
-	state StateFunc
-	tokens chan Token
 	reader io.RuneReader
 	buffer strings.Builder
 	startPos, endPos Position
@@ -21,39 +18,46 @@ type Lexer struct {
 }
 
 func NewLexer(r io.RuneReader) *Lexer {
-	l := Lexer{
+	return &Lexer{
 		reader: r,
-		// TODO: lexer without goroutines
-		tokens: make(chan Token, 1),
 	}
-	l.state = l.initState
-	return &l
 }
 
-func (l *Lexer) Run() {
-	for l.state != nil {
-		l.state = l.state()
+func (l *Lexer) NextToken() (Token, error) {
+	_, err := l.peek()
+	if err != nil {
+		return Token{}, err
 	}
-	close(l.tokens)
+	tok, err := l.nextState()
+	if err == io.EOF {
+		err = nil
+	}
+	return tok, err
 }
 
-func (l *Lexer) NextToken() (tok Token, eof bool) {
-	for l.state != nil {
-		select {
-		case token := <-l.tokens:
-			return token, false
-		default:
-			l.state = l.state()
-		}
+func (l *Lexer) nextState() (Token, error) {
+	r, err := l.peek()
+	if err != nil {
+		return Token{}, err
 	}
-	return Token{}, true
+	if r == '#' {
+		return l.commentState()
+	}
+	if r == '\n' {
+		return l.sepState()
+	}
+	if unicode.IsSpace(r) {
+		return l.spacesState()
+	}
+	return l.textState()
 }
 
-func (l *Lexer) emit(typ TokenType) {
+func (l *Lexer) emit(typ TokenType) Token {
 	value := l.buffer.String()
-	l.tokens <- Token{typ, value, l.startPos, l.endPos}
+	tok := Token{typ, value, l.startPos, l.endPos}
 	l.startPos = l.endPos
 	l.buffer.Reset()
+	return tok
 }
 
 func (l *Lexer) peek() (rune, error) {
@@ -69,6 +73,7 @@ func (l *Lexer) peek() (rune, error) {
 func (l *Lexer) accept() {
 	r, size, err := l.next.r, l.next.size, l.next.err
 	if err != nil || size <= 0 {
+		// it's a bug: accept without peek or after error
 		panic("nothing to accept")
 	}
 	l.buffer.WriteRune(r)
@@ -80,6 +85,7 @@ func (l *Lexer) accept() {
 	default:
 		l.endPos.Column++
 	}
+	// clear next rune
 	l.next.size = 0
 }
 
@@ -92,72 +98,45 @@ func (l *Lexer) read() (rune, error) {
 	return r, err
 }
 
-func (l *Lexer) initState() StateFunc {
-	r, err := l.peek()
-	if err != nil {
-		return l.eofState
-	}
-	switch r {
-	case '#':
-		return l.commentState
-	case '\n':
-		return l.sepState
-	default:
-		if isSpace(r) {
-			return l.spacesState
-		}
-		return l.textState
-	}
-}
-
-func (l *Lexer) eofState() StateFunc {
-	return nil
-}
-
-func (l *Lexer) sepState() StateFunc {
+func (l *Lexer) sepState() (Token, error) {
 	// assume separator (i.e. end of line)
 	l.accept()
-	l.emit(SepToken)
-	return l.initState
+	return l.emit(SepToken), nil
 }
 
-func (l *Lexer) spacesState() StateFunc {
+func (l *Lexer) spacesState() (Token, error) {
 	for {
 		r, err := l.peek()
 		if err != nil {
-			l.emit(SpaceToken)
-			return l.eofState
+			return l.emit(SpaceToken), err
 		}
-		if !isSpace(r) {
-			l.emit(SpaceToken)
-			return l.initState
+		if !unicode.IsSpace(r) || r == '\n' {
+			return l.emit(SpaceToken), nil
 		}
 		l.accept()
 	}
 }
 
-func (l *Lexer) textState() StateFunc {
+func (l *Lexer) textState() (Token, error) {
 	for {
 		r, err := l.peek()
 		if err != nil {
-			l.emit(TextToken)
-			return l.eofState
+			return l.emit(TextToken), err
 		}
 		switch r {
 		case '\\':
-			if err := l.escapeText(); err != nil {
-				l.emit(TextToken)
-				return l.eofState
+			err := l.escapeText()
+			if err != nil {
+				return l.emit(TextToken), err
 			}
 		case '"':
-			if err := l.quoteText(); err != nil {
-				l.emit(TextToken)
-				return l.eofState
+			err := l.quoteText()
+			if err != nil {
+				return l.emit(TextToken), err
 			}
 		default:
-			if !isText(r) {
-				l.emit(TextToken)
-				return l.initState
+			if unicode.IsSpace(r) || r == '#' {
+				return l.emit(TextToken), nil
 			}
 			l.accept()
 		}
@@ -189,7 +168,8 @@ func (l *Lexer) quoteText() error {
 		}
 		switch r {
 		case '\\':
-			if err := l.escapeText(); err != nil {
+			err := l.escapeText()
+			if err != nil {
 				return err
 			}
 			continue
@@ -205,16 +185,14 @@ func (l *Lexer) quoteText() error {
 	}
 }
 
-func (l *Lexer) commentState() StateFunc {
+func (l *Lexer) commentState() (Token, error) {
 	for {
 		r, err := l.peek()
 		if err != nil {
-			l.emit(CommentToken)
-			return l.eofState
+			return l.emit(CommentToken), err
 		}
 		if r == '\n' {
-			l.emit(CommentToken)
-			return l.initState
+			return l.emit(CommentToken), nil
 		}
 		l.accept()
 	}

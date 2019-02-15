@@ -7,12 +7,27 @@ import (
 	"unicode/utf8"
 )
 
+func lex(l *Lexer) <-chan Token {
+	tokens := make(chan Token)
+	go func() {
+		defer close(tokens)
+		for {
+			tok, err := l.NextToken()
+			if err != nil {
+				break
+			}
+			tokens <- tok
+		}
+	}()
+	return tokens
+}
+
 func main() {
-	l := NewLexer(bufio.NewReaderSize(os.Stdin, utf8.UTFMax))
-	go l.Run()
+	r := bufio.NewReaderSize(os.Stdin, utf8.UTFMax)
+	l := NewLexer(r)
 
 	line := []Token{}
-	for tok := range l.tokens {
+	for tok := range lex(l) {
 		switch tok.Typ {
 		case SepToken:
 			log.Println(line)
@@ -20,7 +35,7 @@ func main() {
 		case SpaceToken:
 			continue
 		case TextToken:
-			// ignore escaped sep
+			// line folding
 			if tok.Val == "\\\n" {
 				continue
 			}

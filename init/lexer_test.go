@@ -12,22 +12,55 @@ func TestSpecialCases(t *testing.T) {
 			"",
 			[]Token{},
 		},
-		"SepEof": {
+		"SepEOF": {
 			"\n",
 			[]Token{
 				{SepToken, "\n", Position{0, 0, 0}, Position{1, 1, 0}},
 			},
 		},
-		"SpaceEof": {
+	})
+}
+
+func TestText(t *testing.T) {
+	runTestCases(t, map[string]testCase{
+		"EOF": {
+			"a",
+			[]Token{
+				{TextToken, "a", Position{0, 0, 0}, Position{1, 0, 1}},
+			},
+		},
+		"Sep": {
+			"a\n",
+			[]Token{
+				{TextToken, "a", Position{0, 0, 0}, Position{1, 0, 1}},
+				{SepToken, "\n", Position{1, 0, 1}, Position{2, 1, 0}},
+			},
+		},
+		"Space": {
+			"a b",
+			[]Token{
+				{TextToken, "a", Position{0, 0, 0}, Position{1, 0, 1}},
+				{SpaceToken, " ", Position{1, 0, 1}, Position{2, 0, 2}},
+				{TextToken, "b", Position{2, 0, 2}, Position{3, 0, 3}},
+			},
+		},
+	})
+}
+
+func TestSpace(t *testing.T) {
+	runTestCases(t, map[string]testCase{
+		"EOF": {
 			" ",
 			[]Token{
 				{SpaceToken, " ", Position{0, 0, 0}, Position{1, 0, 1}},
 			},
 		},
-		"TextEof": {
-			"a",
+		// regression: did not terminate space token on end of line
+		"SepSpace": {
+			" \n",
 			[]Token{
-				{TextToken, "a", Position{0, 0, 0}, Position{1, 0, 1}},
+				{SpaceToken, " ", Position{0, 0, 0}, Position{1, 0, 1}},
+				{SepToken, "\n", Position{1, 0, 1}, Position{2, 1, 0}},
 			},
 		},
 	})
@@ -112,7 +145,7 @@ func TestTextEscaping(t *testing.T) {
 	})
 }
 
-func TestQuotes(t *testing.T) {
+func TestTextQuotes(t *testing.T) {
 	runTestCases(t, map[string]testCase{
 		"EOF": {
 			`"`,
@@ -181,17 +214,21 @@ func runTestCases(t *testing.T, cases map[string]testCase) {
 		r := newTestReader(t, strings.NewReader(text))
 		l := NewLexer(r)
 		for _, tok := range toks {
-			ntok, eof := l.NextToken()
-			if eof {
-				t.Fatalf("expected %s, found EOF", tok)
+			ntok, err := l.NextToken()
+			if err != nil {
+				t.Fatalf("expected %s token, got %s error", tok, err)
 			}
 			if ntok != tok {
-				t.Fatalf("expected %s, got %s", tok, ntok)
+				t.Fatalf("expected %s token, got %s token", tok, ntok)
 			}
 		}
-		tok, eof := l.NextToken()
-		if !eof {
-			t.Fatalf("expected EOF, found %s", tok)
+		tok, err := l.NextToken()
+		if err != io.EOF {
+			if err != nil {
+				t.Fatalf("expected EOF error, got %s error", err)
+			} else {
+				t.Fatalf("expected EOF error, got %s token", tok)
+			}
 		}
 	}
 	for name, params := range cases {
