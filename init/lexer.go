@@ -24,22 +24,18 @@ func NewLexer(r io.RuneReader) *Lexer {
 }
 
 func (l *Lexer) NextToken() (Token, error) {
-	_, err := l.peek()
+	r, err := l.peek()
 	if err != nil {
 		return Token{}, err
 	}
-	tok, err := l.nextState()
+	tok, err := l.nextState(r)
 	if err == io.EOF {
 		err = nil
 	}
 	return tok, err
 }
 
-func (l *Lexer) nextState() (Token, error) {
-	r, err := l.peek()
-	if err != nil {
-		return Token{}, err
-	}
+func (l *Lexer) nextState(r rune) (Token, error) {
 	if r == '#' {
 		return l.commentState()
 	}
@@ -146,7 +142,8 @@ func (l *Lexer) textState() (Token, error) {
 func (l *Lexer) escapeText() error {
 	// assume it's escape character (i.e. backslash)
 	if _, err := l.read(); err != nil {
-		return err
+		// it's a bug: escapeText must be called after peek
+		panic(err)
 	}
 	// accept next rune
 	_, err := l.read()
@@ -157,7 +154,8 @@ func (l *Lexer) quoteText() error {
 	// assume it's a quote character
 	r, err := l.read()
 	if err != nil {
-		return err
+		// it's a bug: quoteText must be called after peek
+		panic(err)
 	}
 	quote := r
 	for {
