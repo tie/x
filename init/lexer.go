@@ -119,6 +119,9 @@ func (l *Lexer) textState() (Token, error) {
 		if err != nil {
 			return l.emit(TextToken), err
 		}
+		if unicode.IsSpace(r) || r == '#' {
+			return l.emit(TextToken), nil
+		}
 		switch r {
 		case '\\':
 			// escape character
@@ -127,21 +130,19 @@ func (l *Lexer) textState() (Token, error) {
 			if err != nil {
 				return l.emit(TextToken), err
 			}
-			// and terminate on end of line
+			// and terminate at the end of line
 			if r == '\n' {
 				return l.emit(TextToken), nil
 			}
+			continue
 		case '"':
 			err := l.quoteText()
 			if err != nil {
 				return l.emit(TextToken), err
 			}
-		default:
-			if unicode.IsSpace(r) || r == '#' {
-				return l.emit(TextToken), nil
-			}
-			l.accept()
+			continue
 		}
+		l.accept()
 	}
 }
 
