@@ -56,7 +56,7 @@ func TestSpace(t *testing.T) {
 				{SpaceToken, " ", Pos("1:1(+0)"), Pos("1:2(+1)")},
 			},
 		},
-		// regression: did not terminate space token on end of line
+		// regression: did not terminate space token at the end of line
 		"SepSpace": {
 			" \n",
 			[]Token{
@@ -99,10 +99,12 @@ func TestTextEscaping(t *testing.T) {
 				{TextToken, "\\", Pos("1:1(+0)"), Pos("1:2(+1)")},
 			},
 		},
+		// line folding: terminate text token even when escaping end of line, though don't emit SepToken
 		"Sep": {
-			"\\\n",
+			"\\\n\\\n",
 			[]Token{
 				{TextToken, "\\\n", Pos("1:1(+0)"), Pos("2:1(+2)")},
+				{TextToken, "\\\n", Pos("2:1(+2)"), Pos("3:1(+4)")},
 			},
 		},
 		"Space": {

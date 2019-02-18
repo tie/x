@@ -121,9 +121,15 @@ func (l *Lexer) textState() (Token, error) {
 		}
 		switch r {
 		case '\\':
-			err := l.escapeText()
+			// escape character
+			l.accept()
+			r, err := l.read()
 			if err != nil {
 				return l.emit(TextToken), err
+			}
+			// and terminate on end of line
+			if r == '\n' {
+				return l.emit(TextToken), nil
 			}
 		case '"':
 			err := l.quoteText()
@@ -137,17 +143,6 @@ func (l *Lexer) textState() (Token, error) {
 			l.accept()
 		}
 	}
-}
-
-func (l *Lexer) escapeText() error {
-	// assume it's escape character (i.e. backslash)
-	if _, err := l.read(); err != nil {
-		// it's a bug: escapeText must be called after peek
-		panic(err)
-	}
-	// accept next rune
-	_, err := l.read()
-	return err
 }
 
 func (l *Lexer) quoteText() error {
@@ -166,7 +161,9 @@ func (l *Lexer) quoteText() error {
 		}
 		switch r {
 		case '\\':
-			err := l.escapeText()
+			// escape character
+			l.accept()
+			_, err := l.read()
 			if err != nil {
 				return err
 			}
