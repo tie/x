@@ -136,7 +136,8 @@ func (l *Lexer) textState() (Token, error) {
 			}
 			continue
 		case '"':
-			err := l.quoteText()
+			l.accept()
+			err := quoteText(l, r)
 			if err != nil {
 				return l.emit(TextToken), err
 			}
@@ -146,14 +147,7 @@ func (l *Lexer) textState() (Token, error) {
 	}
 }
 
-func (l *Lexer) quoteText() error {
-	// assume it's a quote character
-	r, err := l.read()
-	if err != nil {
-		// it's a bug: quoteText must be called after peek
-		panic(err)
-	}
-	quote := r
+func quoteText(l *Lexer, quote rune) error {
 	for {
 		r, err := l.peek()
 		if err != nil {
