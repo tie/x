@@ -1,4 +1,4 @@
-package main
+package parser
 
 type (
 	// ExpandFunc handles parsing of token line.
@@ -22,26 +22,3 @@ type (
 	// UnitLexicon defines rules for parsing Unit.
 	UnitLexicon map[string]SectionLexicon
 )
-
-var Lexicon = UnitLexicon{
-	"import": {
-		ExpandFunc: dummyExpand,
-	},
-	"on": {
-		ExpandFunc: dummyExpand,
-	},
-	"service": {
-		ExpandFunc: dummyExpand,
-		Directives: map[string]ExpandFunc{
-			"class": dummyExpand,
-		},
-	},
-}
-
-func dummyExpand(toks TokenLine) (Line, error) {
-	var line Line
-	for _, tok := range toks {
-		line = append(line, tok.Val)
-	}
-	return line, nil
-}

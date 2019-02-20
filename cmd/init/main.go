@@ -5,11 +5,13 @@ import (
 	"log"
 	"os"
 	"unicode/utf8"
+
+	"github.com/tie/x/config"
 )
 
 func main() {
 	r := bufio.NewReaderSize(os.Stdin, utf8.UTFMax)
-	unit, err := Parse(r, Lexicon)
+	unit, err := config.Parse(r)
 	if err != nil {
 		log.Fatal(err)
 	}

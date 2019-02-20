@@ -1,7 +1,10 @@
-package main
+package parser
 
 import (
 	"io"
+
+	"github.com/tie/x/config/lexer"
+	"github.com/tie/x/config/token"
 )
 
 type (
@@ -11,12 +14,12 @@ type (
 )
 
 type Parser struct {
-	lexer *Lexer
+	lexer *lexer.Lexer
 }
 
 func NewParser(r io.RuneReader) *Parser {
 	return &Parser{
-		lexer: NewLexer(r),
+		lexer: lexer.NewLexer(r),
 	}
 }
 
@@ -32,13 +35,13 @@ func (p *Parser) NextLine() (TokenLine, error) {
 			return toks, err
 		}
 		switch tok.Typ {
-		case SepToken:
+		case token.SepToken:
 			// skip empty lines
 			if len(toks) <= 0 {
 				continue
 			}
 			return toks, nil
-		case TextToken:
+		case token.TextToken:
 			// line folding
 			if tok.Val == "\\\n" {
 				continue

@@ -1,15 +1,17 @@
-package main
+package lexer
 
 import (
 	"io"
 	"strings"
 	"unicode"
+
+	"github.com/tie/x/config/token"
 )
 
 type Lexer struct {
 	reader io.RuneReader
 	buffer strings.Builder
-	startPos, endPos Position
+	startPos, endPos token.Position
 	next struct {
 		r rune
 		size int
@@ -23,10 +25,10 @@ func NewLexer(r io.RuneReader) *Lexer {
 	}
 }
 
-func (l *Lexer) NextToken() (Token, error) {
+func (l *Lexer) NextToken() (token.Token, error) {
 	r, err := l.peek()
 	if err != nil {
-		return Token{}, err
+		return token.Token{}, err
 	}
 	tok, err := l.nextState(r)
 	if err == io.EOF {
@@ -35,7 +37,7 @@ func (l *Lexer) NextToken() (Token, error) {
 	return tok, err
 }
 
-func (l *Lexer) nextState(r rune) (Token, error) {
+func (l *Lexer) nextState(r rune) (token.Token, error) {
 	if r == '#' {
 		return l.commentState()
 	}
@@ -48,9 +50,14 @@ func (l *Lexer) nextState(r rune) (Token, error) {
 	return l.textState()
 }
 
-func (l *Lexer) emit(typ TokenType) Token {
+func (l *Lexer) emit(typ token.TokenType) token.Token {
 	value := l.buffer.String()
-	tok := Token{typ, value, l.startPos, l.endPos}
+	tok := token.Token{
+		Typ: typ,
+		Val: value,
+		Pos: l.startPos,
+		End: l.endPos,
+	}
 	l.startPos = l.endPos
 	l.buffer.Reset()
 	return tok
@@ -94,33 +101,33 @@ func (l *Lexer) read() (rune, error) {
 	return r, err
 }
 
-func (l *Lexer) sepState() (Token, error) {
+func (l *Lexer) sepState() (token.Token, error) {
 	// assume separator (i.e. end of line)
 	l.accept()
-	return l.emit(SepToken), nil
+	return l.emit(token.SepToken), nil
 }
 
-func (l *Lexer) spacesState() (Token, error) {
+func (l *Lexer) spacesState() (token.Token, error) {
 	for {
 		r, err := l.peek()
 		if err != nil {
-			return l.emit(SpaceToken), err
+			return l.emit(token.SpaceToken), err
 		}
 		if !unicode.IsSpace(r) || r == '\n' {
-			return l.emit(SpaceToken), nil
+			return l.emit(token.SpaceToken), nil
 		}
 		l.accept()
 	}
 }
 
-func (l *Lexer) textState() (Token, error) {
+func (l *Lexer) textState() (token.Token, error) {
 	for {
 		r, err := l.peek()
 		if err != nil {
-			return l.emit(TextToken), err
+			return l.emit(token.TextToken), err
 		}
 		if unicode.IsSpace(r) || r == '#' {
-			return l.emit(TextToken), nil
+			return l.emit(token.TextToken), nil
 		}
 		switch r {
 		case '\\':
@@ -128,18 +135,18 @@ func (l *Lexer) textState() (Token, error) {
 			l.accept()
 			r, err := l.read()
 			if err != nil {
-				return l.emit(TextToken), err
+				return l.emit(token.TextToken), err
 			}
 			// and terminate at the end of line
 			if r == '\n' {
-				return l.emit(TextToken), nil
+				return l.emit(token.TextToken), nil
 			}
 			continue
 		case '"':
 			l.accept()
 			err := quoteText(l, r)
 			if err != nil {
-				return l.emit(TextToken), err
+				return l.emit(token.TextToken), err
 			}
 			continue
 		}
@@ -175,14 +182,14 @@ func quoteText(l *Lexer, quote rune) error {
 	}
 }
 
-func (l *Lexer) commentState() (Token, error) {
+func (l *Lexer) commentState() (token.Token, error) {
 	for {
 		r, err := l.peek()
 		if err != nil {
-			return l.emit(CommentToken), err
+			return l.emit(token.CommentToken), err
 		}
 		if r == '\n' {
-			return l.emit(CommentToken), nil
+			return l.emit(token.CommentToken), nil
 		}
 		l.accept()
 	}
