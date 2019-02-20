@@ -29,7 +29,7 @@ func RunLexerTests(t *testing.T, cases []LexerTest) {
 	}
 }
 
-func expectTokens(toks []token.Token) LexerTestPass {
+func expectTokens(toks ...token.Token) LexerTestPass {
 	return func(t *testing.T, l *Lexer) {
 		for _, tok := range toks {
 			ntok, err := l.NextToken()

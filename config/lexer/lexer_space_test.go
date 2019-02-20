@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/tie/x/config/internal/testingh"
-	"github.com/tie/x/config/token"
+	"github.com/tie/x/config/internal/tokenh"
 )
 
 func TestLexerSpace(t *testing.T) {
@@ -18,9 +18,9 @@ func TestLexerSpace(t *testing.T) {
 				{Error: io.EOF},
 			},
 			Passes: []LexerTestPass{
-				expectTokens([]token.Token{
-					token.Tok(token.SpaceToken, " ", "1:1(+0)", "1:2(+1)"),
-				}),
+				expectTokens(
+					tokenh.Space(" ", "1:1(+0)", "1:2(+1)"),
+				),
 				expectEOF,
 			},
 		},
@@ -34,10 +34,10 @@ func TestLexerSpace(t *testing.T) {
 				{Error: io.EOF},
 			},
 			Passes: []LexerTestPass{
-				expectTokens([]token.Token{
-					token.Tok(token.SpaceToken, " ", "1:1(+0)", "1:2(+1)"),
-					token.Tok(token.SepToken, "\n", "1:2(+1)", "2:1(+2)"),
-				}),
+				expectTokens(
+					tokenh.Space(" ", "1:1(+0)", "1:2(+1)"),
+					tokenh.Sep("\n", "1:2(+1)", "2:1(+2)"),
+				),
 				expectEOF,
 			},
 		},

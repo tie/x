@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/tie/x/config/internal/testingh"
-	"github.com/tie/x/config/token"
+	"github.com/tie/x/config/internal/tokenh"
 )
 
 func TestLexerComment(t *testing.T) {
@@ -18,9 +18,9 @@ func TestLexerComment(t *testing.T) {
 				{Error: io.EOF},
 			},
 			Passes: []LexerTestPass{
-				expectTokens([]token.Token{
-					token.Tok(token.CommentToken, "#", "1:1(+0)", "1:2(+1)"),
-				}),
+				expectTokens(
+					tokenh.Comment("#", "1:1(+0)", "1:2(+1)"),
+				),
 				expectEOF,
 			},
 		},
@@ -33,10 +33,10 @@ func TestLexerComment(t *testing.T) {
 				{Error: io.EOF},
 			},
 			Passes: []LexerTestPass{
-				expectTokens([]token.Token{
-					token.Tok(token.CommentToken, "#", "1:1(+0)", "1:2(+1)"),
-					token.Tok(token.SepToken, "\n", "1:2(+1)", "2:1(+2)"),
-				}),
+				expectTokens(
+					tokenh.Comment("#", "1:1(+0)", "1:2(+1)"),
+					tokenh.Sep("\n", "1:2(+1)", "2:1(+2)"),
+				),
 				expectEOF,
 			},
 		},
@@ -49,9 +49,9 @@ func TestLexerComment(t *testing.T) {
 				{Error: io.EOF},
 			},
 			Passes: []LexerTestPass{
-				expectTokens([]token.Token{
-					token.Tok(token.CommentToken, "# ", "1:1(+0)", "1:3(+2)"),
-				}),
+				expectTokens(
+					tokenh.Comment("# ", "1:1(+0)", "1:3(+2)"),
+				),
 				expectEOF,
 			},
 		},

@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/tie/x/config/internal/testingh"
-	"github.com/tie/x/config/token"
+	"github.com/tie/x/config/internal/tokenh"
 )
 
 func TestLexerTextEscaping(t *testing.T) {
@@ -18,9 +18,9 @@ func TestLexerTextEscaping(t *testing.T) {
 				{Error: io.EOF},
 			},
 			Passes: []LexerTestPass{
-				expectTokens([]token.Token{
-					token.Tok(token.TextToken, "\\", "1:1(+0)", "1:2(+1)"),
-				}),
+				expectTokens(
+					tokenh.Text("\\", "1:1(+0)", "1:2(+1)"),
+				),
 				expectEOF,
 			},
 		},
@@ -36,10 +36,10 @@ func TestLexerTextEscaping(t *testing.T) {
 				{Error: io.EOF},
 			},
 			Passes: []LexerTestPass{
-				expectTokens([]token.Token{
-					token.Tok(token.TextToken, "\\\n", "1:1(+0)", "2:1(+2)"),
-					token.Tok(token.TextToken, "\\\n", "2:1(+2)", "3:1(+4)"),
-				}),
+				expectTokens(
+					tokenh.Text("\\\n", "1:1(+0)", "2:1(+2)"),
+					tokenh.Text("\\\n", "2:1(+2)", "3:1(+4)"),
+				),
 				expectEOF,
 			},
 		},
@@ -52,9 +52,9 @@ func TestLexerTextEscaping(t *testing.T) {
 				{Error: io.EOF},
 			},
 			Passes: []LexerTestPass{
-				expectTokens([]token.Token{
-					token.Tok(token.TextToken, "\\ ", "1:1(+0)", "1:3(+2)"),
-				}),
+				expectTokens(
+					tokenh.Text("\\ ", "1:1(+0)", "1:3(+2)"),
+				),
 				expectEOF,
 			},
 		},
@@ -67,9 +67,9 @@ func TestLexerTextEscaping(t *testing.T) {
 				{Error: io.EOF},
 			},
 			Passes: []LexerTestPass{
-				expectTokens([]token.Token{
-					token.Tok(token.TextToken, "\\#", "1:1(+0)", "1:3(+2)"),
-				}),
+				expectTokens(
+					tokenh.Text("\\#", "1:1(+0)", "1:3(+2)"),
+				),
 				expectEOF,
 			},
 		},
@@ -82,9 +82,9 @@ func TestLexerTextEscaping(t *testing.T) {
 				{Error: io.EOF},
 			},
 			Passes: []LexerTestPass{
-				expectTokens([]token.Token{
-					token.Tok(token.TextToken, "\\n", "1:1(+0)", "1:3(+2)"),
-				}),
+				expectTokens(
+					tokenh.Text("\\n", "1:1(+0)", "1:3(+2)"),
+				),
 				expectEOF,
 			},
 		},
@@ -97,9 +97,9 @@ func TestLexerTextEscaping(t *testing.T) {
 				{Error: io.EOF},
 			},
 			Passes: []LexerTestPass{
-				expectTokens([]token.Token{
-					token.Tok(token.TextToken, "\\\"", "1:1(+0)", "1:3(+2)"),
-				}),
+				expectTokens(
+					tokenh.Text("\\\"", "1:1(+0)", "1:3(+2)"),
+				),
 				expectEOF,
 			},
 		},
@@ -114,10 +114,10 @@ func TestLexerTextEscaping(t *testing.T) {
 				{Error: io.EOF},
 			},
 			Passes: []LexerTestPass{
-				expectTokens([]token.Token{
-					token.Tok(token.TextToken, "\\\"", "1:1(+0)", "1:3(+2)"),
-					token.Tok(token.SepToken, "\n", "1:3(+2)", "2:1(+3)"),
-				}),
+				expectTokens(
+					tokenh.Text("\\\"", "1:1(+0)", "1:3(+2)"),
+					tokenh.Sep("\n", "1:3(+2)", "2:1(+3)"),
+				),
 				expectEOF,
 			},
 		},
@@ -130,9 +130,9 @@ func TestLexerTextEscaping(t *testing.T) {
 				{Error: io.EOF},
 			},
 			Passes: []LexerTestPass{
-				expectTokens([]token.Token{
-					token.Tok(token.TextToken, "\\\\", "1:1(+0)", "1:3(+2)"),
-				}),
+				expectTokens(
+					tokenh.Text("\\\\", "1:1(+0)", "1:3(+2)"),
+				),
 				expectEOF,
 			},
 		},

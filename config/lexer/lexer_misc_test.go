@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/tie/x/config/internal/testingh"
-	"github.com/tie/x/config/token"
+	"github.com/tie/x/config/internal/tokenh"
 )
 
 func TestLexerMisc(t *testing.T) {
@@ -28,9 +28,9 @@ func TestLexerMisc(t *testing.T) {
 				{Error: io.EOF},
 			},
 			Passes: []LexerTestPass{
-				expectTokens([]token.Token{
-					token.Tok(token.SepToken, "\n", "1:1(+0)", "2:1(+1)"),
-				}),
+				expectTokens(
+					tokenh.Sep("\n", "1:1(+0)", "2:1(+1)"),
+				),
 				expectEOF,
 			},
 		},

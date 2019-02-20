@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/tie/x/config/internal/testingh"
-	"github.com/tie/x/config/token"
+	"github.com/tie/x/config/internal/tokenh"
 )
 
 func TestParserMisc(t *testing.T) {
@@ -43,10 +43,10 @@ func TestParserMisc(t *testing.T) {
 			Passes: []ParserTestPass{
 				expectLines([]TokenLine{
 					{
-						token.Tok(token.TextToken, "a", "1:1(+0)", "1:2(+1)"),
+						tokenh.Text("a", "1:1(+0)", "1:2(+1)"),
 					},
 					{
-						token.Tok(token.TextToken, "b", "2:1(+2)", "2:2(+3)"),
+						tokenh.Text("b", "2:1(+2)", "2:2(+3)"),
 					},
 				}),
 				expectEOF,
