@@ -28,19 +28,19 @@ func RunParserTests(t *testing.T, cases []ParserTest) {
 	}
 }
 
-func expectLines(tokLines []TokenLine) ParserTestPass {
+func expectStatements(stmtList []Statement) ParserTestPass {
 	return func(t *testing.T, p *Parser) {
-		for _, toks := range tokLines {
-			ntoks, err := p.NextLine()
+		for _, stmt := range stmtList {
+			nstmt, err := p.NextStatement()
 			if err != nil {
-				t.Fatalf("expected %s token line, got %s error", toks, err)
+				t.Fatalf("expected %s statement, got %s error", stmt, err)
 			}
-			if len(ntoks) != len(toks) {
-				t.Fatalf("expected %s token line, got %s token line", toks, ntoks)
+			if len(nstmt) != len(stmt) {
+				t.Fatalf("expected %s statement, got %s statement", stmt, nstmt)
 			}
 			errs := 0
-			for i, tok := range toks {
-				ntok := ntoks[i]
+			for i, tok := range stmt {
+				ntok := nstmt[i]
 				if ntok != tok {
 					t.Errorf("expected %s token, got %s token", tok, ntok)
 					errs++
@@ -54,12 +54,12 @@ func expectLines(tokLines []TokenLine) ParserTestPass {
 }
 
 func expectEOF(t *testing.T, p *Parser) {
-	tokLine, err := p.NextLine()
+	stmt, err := p.NextStatement()
 	if err != io.EOF {
 		if err != nil {
 			t.Fatalf("expected EOF error, got %s error", err)
 		} else {
-			t.Fatalf("expected EOF error, got %s token line", tokLine)
+			t.Fatalf("expected EOF error, got %s statement", stmt)
 		}
 	}
 }

@@ -41,7 +41,7 @@ func TestParserMisc(t *testing.T) {
 				{Error: io.EOF},
 			},
 			Passes: []ParserTestPass{
-				expectLines([]TokenLine{
+				expectStatements([]Statement{
 					{
 						tokenh.Text("a", "1:1(+0)", "1:2(+1)"),
 					},
